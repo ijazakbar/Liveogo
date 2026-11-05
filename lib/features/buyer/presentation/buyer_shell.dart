@@ -108,7 +108,9 @@ class _BuyerFeedScreenState extends ConsumerState<BuyerFeedScreen> {
                     child: GestureDetector(
                       onTap: () => setState(() {
                         _selectedTab = tab;
-                        _pageController.jumpToPage(0);
+                        if (_pageController.hasClients) {
+                          _pageController.jumpToPage(0);
+                        }
                       }),
                       child: Padding(
                         padding: const EdgeInsets.symmetric(horizontal: 13, vertical: 12),
