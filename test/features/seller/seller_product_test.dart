@@ -49,6 +49,10 @@ void main() {
       'price': '2500',
       'stock': '8',
       'is_active': 'true',
+      'description': '',
+      'category': '',
+      'sku': '',
+      'sale_price': '',
     });
   });
 }

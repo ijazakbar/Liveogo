@@ -74,10 +74,10 @@ class SellerProductDraft {
         'price': price.toString(),
         'stock': stock.toString(),
         'is_active': isActive.toString(),
-        if (description != null) 'description': description!,
-        if (category != null) 'category': category!,
-        if (sku != null) 'sku': sku!,
-        if (salePrice != null) 'sale_price': salePrice.toString(),
+        'description': description ?? '',
+        'category': category ?? '',
+        'sku': sku ?? '',
+        'sale_price': salePrice?.toString() ?? '',
       };
 }
 
