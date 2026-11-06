@@ -11,6 +11,10 @@ final routerProvider = Provider<GoRouter>((ref) {
       GoRoute(path: '/splash', builder: (context, state) => const SplashScreen()),
       GoRoute(path: '/onboarding', builder: (context, state) => const OnboardingScreen()),
       GoRoute(path: '/login', builder: (context, state) => const LoginScreen()),
+      GoRoute(path: '/verify-otp', builder: (context, state) {
+        final extra = state.extra as Map<String, String>;
+        return VerifyOtpScreen(phoneE164: extra['phone']!, challengeId: extra['challengeId']!);
+      }),
       GoRoute(path: '/role', builder: (context, state) => const RoleSelectionScreen()),
       GoRoute(path: '/buyer', builder: (context, state) => const BuyerShell()),
       GoRoute(path: '/seller', builder: (context, state) => const SellerShell()),
