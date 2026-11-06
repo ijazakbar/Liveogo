@@ -1,4 +1,6 @@
 import 'package:flutter/material.dart';
+import 'package:flutter_riverpod/flutter_riverpod.dart';
+import '../application/auth_providers.dart';
 import 'package:go_router/go_router.dart';
 import '../../../app/theme.dart';
 
@@ -56,15 +58,51 @@ class OnboardingScreen extends StatelessWidget {
   );
 }
 
-class LoginScreen extends StatefulWidget {
+class LoginScreen extends ConsumerStatefulWidget {
   const LoginScreen({super.key});
   @override
-  State<LoginScreen> createState() => _LoginScreenState();
+  ConsumerState<LoginScreen> createState() => _LoginScreenState();
 }
-class _LoginScreenState extends State<LoginScreen> {
+
+class _LoginScreenState extends ConsumerState<LoginScreen> {
   final phone = TextEditingController();
+  bool sending = false;
+
   @override
   void dispose() { phone.dispose(); super.dispose(); }
+
+  String get phoneE164 {
+    var value = phone.text.replaceAll(RegExp(r'[^0-9]'), '');
+    if (value.startsWith('0')) value = value.substring(1);
+    return '+92$value';
+  }
+
+  Future<void> _requestOtp() async {
+    if (phone.text.replaceAll(RegExp(r'[^0-9]'), '').length < 10) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(content: Text('Enter a valid Pakistani mobile number.')),
+      );
+      return;
+    }
+    setState(() => sending = true);
+    try {
+      final challenge = await ref.read(authRepositoryProvider).requestOtp(phoneE164);
+      if (!mounted) return;
+      await context.push('/verify-otp', extra: {
+        'phone': phoneE164,
+        'challengeId': challenge.challengeId,
+      });
+    } catch (_) {
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          const SnackBar(content: Text('OTP could not be requested. Check your connection and try again.')),
+        );
+      }
+    } finally {
+      if (mounted) setState(() => sending = false);
+    }
+  }
+
   @override
   Widget build(BuildContext context) => Scaffold(
     appBar: AppBar(),
@@ -72,20 +110,79 @@ class _LoginScreenState extends State<LoginScreen> {
       crossAxisAlignment: CrossAxisAlignment.start, children: [
         Text('Welcome to LiveOgo', style: Theme.of(context).textTheme.headlineMedium?.copyWith(fontWeight: FontWeight.bold)),
         const SizedBox(height: 10),
-        const Text('Enter your mobile number to continue. OTP delivery is enabled after Firebase credentials are configured.'),
+        const Text('Enter your Pakistani mobile number. We will send a one-time verification code.'),
         const SizedBox(height: 28),
         TextField(controller: phone, keyboardType: TextInputType.phone,
           decoration: const InputDecoration(prefixText: '+92 ', labelText: 'Phone number', hintText: '3XX XXXXXXX')),
         const Spacer(),
         SizedBox(width: double.infinity, child: FilledButton(
-          onPressed: () {
-            if (phone.text.trim().length < 9) {
-              ScaffoldMessenger.of(context).showSnackBar(const SnackBar(content: Text('Enter a valid phone number.')));
-              return;
-            }
-            context.go('/role');
-          },
-          child: const Padding(padding: EdgeInsets.all(14), child: Text('Continue')))),
+          onPressed: sending ? null : _requestOtp,
+          child: Padding(padding: const EdgeInsets.all(14), child: sending
+            ? const SizedBox(width: 20, height: 20, child: CircularProgressIndicator(strokeWidth: 2))
+            : const Text('Send verification code')))),
+      ]))),
+  );
+}
+
+class VerifyOtpScreen extends ConsumerStatefulWidget {
+  const VerifyOtpScreen({super.key, required this.phoneE164, required this.challengeId});
+  final String phoneE164;
+  final String challengeId;
+  @override
+  ConsumerState<VerifyOtpScreen> createState() => _VerifyOtpScreenState();
+}
+
+class _VerifyOtpScreenState extends ConsumerState<VerifyOtpScreen> {
+  final code = TextEditingController();
+  bool verifying = false;
+
+  @override
+  void dispose() { code.dispose(); super.dispose(); }
+
+  Future<void> _verify() async {
+    if (!RegExp(r'^[0-9]{6}$').hasMatch(code.text.trim())) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(content: Text('Enter the 6-digit verification code.')),
+      );
+      return;
+    }
+    setState(() => verifying = true);
+    try {
+      final session = await ref.read(authRepositoryProvider).verifyOtp(
+        phoneE164: widget.phoneE164,
+        challengeId: widget.challengeId,
+        code: code.text.trim(),
+      );
+      await persistAuthSession(ref, session: session);
+      if (mounted) context.go('/role');
+    } catch (_) {
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          const SnackBar(content: Text('Code verification failed. Check the code or request a new one.')),
+        );
+      }
+    } finally {
+      if (mounted) setState(() => verifying = false);
+    }
+  }
+
+  @override
+  Widget build(BuildContext context) => Scaffold(
+    appBar: AppBar(title: const Text('Verify phone number')),
+    body: SafeArea(child: Padding(padding: const EdgeInsets.all(24), child: Column(
+      crossAxisAlignment: CrossAxisAlignment.start, children: [
+        Text('Enter verification code', style: Theme.of(context).textTheme.headlineSmall?.copyWith(fontWeight: FontWeight.bold)),
+        const SizedBox(height: 8),
+        Text('We sent a code to ' + widget.phoneE164 + '.'),
+        const SizedBox(height: 24),
+        TextField(controller: code, autofocus: true, keyboardType: TextInputType.number,
+          maxLength: 6, decoration: const InputDecoration(labelText: '6-digit code', counterText: '')),
+        const Spacer(),
+        SizedBox(width: double.infinity, child: FilledButton(
+          onPressed: verifying ? null : _verify,
+          child: Padding(padding: const EdgeInsets.all(14), child: verifying
+            ? const SizedBox(width: 20, height: 20, child: CircularProgressIndicator(strokeWidth: 2))
+            : const Text('Verify and continue')))),
       ]))),
   );
 }
