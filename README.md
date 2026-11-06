@@ -17,14 +17,15 @@ LiveOgo is a Flutter-first live-commerce SaaS platform for buyers, sellers and p
 5. Run checks with `dart format lib test`, `flutter analyze`, and `flutter test`.
 
 ## Current implementation
-- App foundation: theme, splash/onboarding, phone sign-in entry, role selection and buyer/seller navigation.
+- App foundation: theme, splash/onboarding, server-driven Pakistani phone OTP request and verification screens, role selection and buyer/seller navigation.
+- Authentication increment: OTP challenge and verification repositories, secure access/refresh token storage, and bearer-token attachment for non-auth API requests. Backend endpoints and SMS provider must be deployed before sign-in works.
 - Buyer feed: Riverpod/Dio feed loading, Live/Following/For You tabs, vertical feed paging, seller metadata, pinned product detail and loading/empty/error/retry states.
 - Seller inventory: API-backed catalogue listing, local search, low-stock indicators, add/edit forms, image selection/upload, active status and confirmed catalogue removal.
 - API contracts are documented in `docs/buyer-feed-api.md` and `docs/seller-inventory-api.md`.
 
 The Buyer feed and Seller inventory require corresponding backend endpoints. The current Flutter foundation does not yet attach a production access token to Dio requests, so secured endpoints will reject requests until authentication-token injection is implemented. This client code does not modify the Supabase schema or production data.
 
-Production integrations (Firebase phone OTP, Supabase persistence, Agora live video, Firestore chat, payment provider verification, maps and KYC) require project credentials and backend contracts. They are intentionally not simulated as successful transactions.
+Production integrations (SMS vendor delivery for the OTP endpoints, Supabase persistence, live video, chat, payment provider verification, maps and KYC) require project credentials and backend contracts. They are intentionally not simulated as successful transactions.
 
 ## Project structure
 - `lib/app`: app configuration, routing and theme
