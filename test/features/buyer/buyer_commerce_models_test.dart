@@ -65,6 +65,16 @@ void main() {
       expect(cart.subtotal, 4998);
     });
 
+    test('rejects negative server totals', () {
+      expect(
+        () => BuyerCart.fromJson({
+          'subtotal': -1,
+          'items': [],
+        }),
+        throwsA(isA<FormatException>()),
+      );
+    });
+
     test('rejects cart items with zero quantity', () {
       expect(
         () => BuyerCart.fromJson({

@@ -73,12 +73,17 @@ class BuyerCartItem {
     if (quantity is! int || quantity < 1) {
       throw const FormatException('Cart item quantity must be positive.');
     }
+    final unitPrice = _number(json['unit_price'], 'unit_price');
+    final lineTotal = _number(json['line_total'], 'line_total');
+    if (unitPrice < 0 || lineTotal < 0) {
+      throw const FormatException('Cart prices cannot be negative.');
+    }
     return BuyerCartItem(
       id: _requiredText(json, 'id'),
       productId: _requiredText(json, 'product_id'),
       title: _requiredText(json, 'title'),
-      unitPrice: _number(json['unit_price'], 'unit_price'),
-      lineTotal: _number(json['line_total'], 'line_total'),
+      unitPrice: unitPrice,
+      lineTotal: lineTotal,
       currency: _optionalText(json['currency']) ?? 'PKR',
       quantity: quantity,
       imageUrl: _optionalText(json['image_url']),
@@ -102,6 +107,10 @@ class BuyerCart {
     if (rawItems is! List<dynamic>) {
       throw const FormatException('Cart response must contain an items array.');
     }
+    final subtotal = _number(json['subtotal'], 'subtotal');
+    if (subtotal < 0) {
+      throw const FormatException('Cart subtotal cannot be negative.');
+    }
     return BuyerCart(
       items: rawItems.map((item) {
         if (item is! Map<String, dynamic>) {
@@ -109,7 +118,7 @@ class BuyerCart {
         }
         return BuyerCartItem.fromJson(item);
       }).toList(growable: false),
-      subtotal: _number(json['subtotal'], 'subtotal'),
+      subtotal: subtotal,
       currency: _optionalText(json['currency']) ?? 'PKR',
     );
   }

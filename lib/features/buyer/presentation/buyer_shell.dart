@@ -340,8 +340,9 @@ class _ProductDetailSheet extends ConsumerWidget {
             );
             ref.invalidate(buyerCartProvider);
             if (context.mounted) {
+              final messenger = ScaffoldMessenger.of(context);
               Navigator.pop(context);
-              ScaffoldMessenger.of(context).showSnackBar(
+              messenger.showSnackBar(
                 const SnackBar(content: Text('Added to your cart.')),
               );
             }
