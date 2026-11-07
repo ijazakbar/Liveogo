@@ -1,8 +1,12 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
+import '../../auth/application/auth_providers.dart';
+import '../application/buyer_commerce_providers.dart';
 import '../application/feed_providers.dart';
 import '../data/feed_models.dart';
+import 'cart_screen.dart';
+import 'shop_screen.dart';
 
 final buyerTabProvider = StateProvider<int>((ref) => 0);
 
@@ -10,7 +14,7 @@ class BuyerShell extends ConsumerWidget {
   const BuyerShell({super.key});
   static const _tabs = [
     _BuyerTab(Icons.home_rounded, 'Home'),
-    _BuyerTab(Icons.explore_outlined, 'Discover'),
+    _BuyerTab(Icons.storefront_outlined, 'Shop'),
     _BuyerTab(Icons.shopping_cart_outlined, 'Cart'),
     _BuyerTab(Icons.chat_bubble_outline, 'Inbox'),
     _BuyerTab(Icons.person_outline, 'Profile'),
@@ -22,8 +26,8 @@ class BuyerShell extends ConsumerWidget {
     return Scaffold(
       body: IndexedStack(index: index, children: const [
         BuyerFeedScreen(),
-        _BuyerPlaceholder(title: 'Discover', icon: Icons.explore),
-        _BuyerPlaceholder(title: 'Your cart', icon: Icons.shopping_cart),
+        ShopScreen(),
+        CartScreen(),
         _BuyerPlaceholder(title: 'Inbox', icon: Icons.chat_bubble_outline),
         _BuyerPlaceholder(title: 'Your profile', icon: Icons.person_outline),
       ]),
@@ -49,8 +53,12 @@ class BuyerFeedScreen extends ConsumerStatefulWidget {
 }
 
 class _BuyerFeedScreenState extends ConsumerState<BuyerFeedScreen> {
-  static const _feedTabs = {'Live': 'live', 'Following': 'following', 'For You': 'for_you'};
-  String _selectedTab = 'For You';
+  static const _feedTabs = {
+    'Following': 'following',
+    'For You': 'for_you',
+    'LIVE': 'live',
+  };
+  String _selectedTab = 'LIVE';
   late final PageController _pageController;
 
   @override
@@ -63,6 +71,11 @@ class _BuyerFeedScreenState extends ConsumerState<BuyerFeedScreen> {
   void dispose() {
     _pageController.dispose();
     super.dispose();
+  }
+
+  Future<void> _signOut() async {
+    await clearAuthSession(ref);
+    if (mounted) context.go('/login');
   }
 
   @override
@@ -83,7 +96,18 @@ class _BuyerFeedScreenState extends ConsumerState<BuyerFeedScreen> {
                 onRetry: () => ref.invalidate(buyerFeedProvider(tabKey)),
               ),
               data: (items) {
-                if (items.isEmpty) return const _FeedEmpty();
+                if (items.isEmpty) {
+                  return _FeedEmpty(
+                    onRefresh: () => ref.invalidate(buyerFeedProvider(tabKey)),
+                    onStartLive: () => context.go('/seller'),
+                    onExploreForYou: () => setState(() {
+                      _selectedTab = 'For You';
+                      if (_pageController.hasClients) {
+                        _pageController.jumpToPage(0);
+                      }
+                    }),
+                  );
+                }
                 return RefreshIndicator(
                   onRefresh: () => ref.refresh(buyerFeedProvider(tabKey).future),
                   child: PageView.builder(
@@ -97,31 +121,107 @@ class _BuyerFeedScreenState extends ConsumerState<BuyerFeedScreen> {
             ),
           ),
           Positioned(
-            top: 4, left: 0, right: 0,
+            top: 2,
+            left: 16,
+            right: 16,
             child: Row(
-              mainAxisAlignment: MainAxisAlignment.center,
+              mainAxisAlignment: MainAxisAlignment.spaceBetween,
               children: [
-                for (final tab in _feedTabs.keys)
-                  Semantics(
-                    button: true,
-                    selected: _selectedTab == tab,
-                    child: GestureDetector(
-                      onTap: () => setState(() {
-                        _selectedTab = tab;
-                        if (_pageController.hasClients) {
-                          _pageController.jumpToPage(0);
-                        }
-                      }),
-                      child: Padding(
-                        padding: const EdgeInsets.symmetric(horizontal: 13, vertical: 12),
-                        child: Text(tab, style: TextStyle(
-                          color: _selectedTab == tab ? Colors.white : Colors.white60,
-                          fontWeight: _selectedTab == tab ? FontWeight.bold : FontWeight.normal,
-                        )),
+                const Text.rich(
+                  TextSpan(children: [
+                    TextSpan(
+                      text: 'Live',
+                      style: TextStyle(
+                        color: Colors.white,
+                        fontSize: 25,
+                        fontWeight: FontWeight.w900,
+                        letterSpacing: -1.2,
                       ),
                     ),
+                    TextSpan(
+                      text: 'Ogo',
+                      style: TextStyle(
+                        color: Color(0xFFB7F36B),
+                        fontSize: 25,
+                        fontWeight: FontWeight.w900,
+                        letterSpacing: -1.2,
+                      ),
+                    ),
+                  ]),
+                ),
+                TextButton(
+                  onPressed: _signOut,
+                  style: TextButton.styleFrom(
+                    foregroundColor: Colors.white,
+                    backgroundColor: Colors.white.withValues(alpha: .08),
+                    shape: const StadiumBorder(),
                   ),
+                  child: const Text('Sign out'),
+                ),
               ],
+            ),
+          ),
+          Positioned(
+            top: 52,
+            left: 0,
+            right: 0,
+            child: Center(
+              child: Container(
+                padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 3),
+                decoration: BoxDecoration(
+                  color: Colors.black.withValues(alpha: .58),
+                  borderRadius: BorderRadius.circular(32),
+                  border: Border.all(color: Colors.white.withValues(alpha: .06)),
+                ),
+                child: Row(
+                  mainAxisSize: MainAxisSize.min,
+                  children: [
+                    for (final tab in _feedTabs.keys)
+                      Semantics(
+                        button: true,
+                        selected: _selectedTab == tab,
+                        child: GestureDetector(
+                          onTap: () => setState(() {
+                            _selectedTab = tab;
+                            if (_pageController.hasClients) {
+                              _pageController.jumpToPage(0);
+                            }
+                          }),
+                          child: Padding(
+                            padding: const EdgeInsets.symmetric(
+                              horizontal: 13,
+                              vertical: 11,
+                            ),
+                            child: Column(
+                              mainAxisSize: MainAxisSize.min,
+                              children: [
+                                Text(
+                                  tab,
+                                  style: TextStyle(
+                                    color: _selectedTab == tab
+                                        ? Colors.white
+                                        : Colors.white60,
+                                    fontWeight: _selectedTab == tab
+                                        ? FontWeight.w800
+                                        : FontWeight.w600,
+                                  ),
+                                ),
+                                const SizedBox(height: 5),
+                                Container(
+                                  height: 3,
+                                  width: 44,
+                                  color: _selectedTab == tab
+                                      ? const Color(0xFFB7F36B)
+                                      : Colors.transparent,
+                                ),
+                              ],
+                            ),
+                          ),
+                        ),
+                      ),
+                  ],
+                ),
+              ),
             ),
           ),
         ]),
@@ -149,13 +249,13 @@ class _FeedPage extends StatelessWidget {
         stops: [0, .38, 1],
       ))),
       if (item.isLive)
-        Positioned(top: 58, left: 16, child: Container(
+        Positioned(top: 108, left: 16, child: Container(
           padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 6),
           decoration: BoxDecoration(color: Colors.red, borderRadius: BorderRadius.circular(8)),
           child: const Text('LIVE', style: TextStyle(color: Colors.white, fontWeight: FontWeight.bold, letterSpacing: 1)),
         )),
       if (item.viewerCount != null)
-        Positioned(top: 61, right: 16, child: Row(children: [
+        Positioned(top: 111, right: 16, child: Row(children: [
           const Icon(Icons.visibility, color: Colors.white, size: 16),
           const SizedBox(width: 5),
           Text('${item.viewerCount}', style: const TextStyle(color: Colors.white)),
@@ -214,12 +314,12 @@ class _PinnedProductCard extends StatelessWidget {
   );
 }
 
-class _ProductDetailSheet extends StatelessWidget {
+class _ProductDetailSheet extends ConsumerWidget {
   const _ProductDetailSheet({required this.product});
   final FeedProduct product;
 
   @override
-  Widget build(BuildContext context) => SafeArea(child: Padding(
+  Widget build(BuildContext context, WidgetRef ref) => SafeArea(child: Padding(
     padding: const EdgeInsets.fromLTRB(20, 18, 20, 28),
     child: Column(mainAxisSize: MainAxisSize.min, crossAxisAlignment: CrossAxisAlignment.start, children: [
       Center(child: Container(width: 38, height: 4,
@@ -229,10 +329,33 @@ class _ProductDetailSheet extends StatelessWidget {
       const SizedBox(height: 8),
       Text('${product.currency} ${product.price}', style: Theme.of(context).textTheme.titleMedium),
       const SizedBox(height: 12),
-      const Text('Product details and purchasing become available when the catalogue and checkout API contracts are connected.'),
+      const Text('Product availability and price are confirmed by the seller catalogue when the item is added.'),
       const SizedBox(height: 18),
-      SizedBox(width: double.infinity, child: FilledButton(
-        onPressed: null, child: const Text('Add to cart — not connected yet'))),
+      SizedBox(width: double.infinity, child: FilledButton.icon(
+        onPressed: () async {
+          try {
+            await ref.read(buyerCommerceRepositoryProvider).addToCart(
+              productId: product.id,
+              quantity: 1,
+            );
+            ref.invalidate(buyerCartProvider);
+            if (context.mounted) {
+              Navigator.pop(context);
+              ScaffoldMessenger.of(context).showSnackBar(
+                const SnackBar(content: Text('Added to your cart.')),
+              );
+            }
+          } catch (_) {
+            if (context.mounted) {
+              ScaffoldMessenger.of(context).showSnackBar(
+                const SnackBar(content: Text('Could not add this product. Please try again.')),
+              );
+            }
+          }
+        },
+        icon: const Icon(Icons.add_shopping_cart),
+        label: const Text('Add to cart'),
+      )),
     ]),
   ));
 }
@@ -251,19 +374,90 @@ class _MediaFallback extends StatelessWidget {
 }
 
 class _FeedEmpty extends StatelessWidget {
-  const _FeedEmpty();
+  const _FeedEmpty({
+    required this.onRefresh,
+    required this.onStartLive,
+    required this.onExploreForYou,
+  });
+
+  final VoidCallback onRefresh;
+  final VoidCallback onStartLive;
+  final VoidCallback onExploreForYou;
+
   @override
-  Widget build(BuildContext context) => const Center(child: Padding(
-    padding: EdgeInsets.all(28),
-    child: Column(mainAxisSize: MainAxisSize.min, children: [
-      Icon(Icons.live_tv_outlined, color: Colors.white54, size: 58),
-      SizedBox(height: 14),
-      Text('Nothing to watch yet', style: TextStyle(color: Colors.white, fontSize: 19, fontWeight: FontWeight.w700)),
-      SizedBox(height: 7),
-      Text('Live sellers and product videos will appear here when available.',
-        textAlign: TextAlign.center, style: TextStyle(color: Colors.white60)),
-    ]),
-  ));
+  Widget build(BuildContext context) => Container(
+    decoration: const BoxDecoration(
+      gradient: RadialGradient(
+        center: Alignment(0, -.15),
+        radius: 1.15,
+        colors: [Color(0xFF17291D), Color(0xFF080C09), Colors.black],
+        stops: [0, .65, 1],
+      ),
+    ),
+    child: Center(child: SingleChildScrollView(
+      physics: const AlwaysScrollableScrollPhysics(),
+      padding: const EdgeInsets.fromLTRB(28, 150, 28, 28),
+      child: Column(mainAxisSize: MainAxisSize.min, children: [
+        const Icon(Icons.shopping_bag_rounded, color: Color(0xFFB7F36B), size: 68),
+        const SizedBox(height: 18),
+        const Text.rich(TextSpan(children: [
+          TextSpan(text: 'Live', style: TextStyle(color: Colors.white, fontSize: 38, fontWeight: FontWeight.w900, letterSpacing: -2)),
+          TextSpan(text: 'Ogo', style: TextStyle(color: Color(0xFFB7F36B), fontSize: 38, fontWeight: FontWeight.w900, letterSpacing: -2)),
+        ])),
+        const SizedBox(height: 24),
+        const Text(
+          'No one is LIVE right now',
+          textAlign: TextAlign.center,
+          style: TextStyle(color: Colors.white, fontSize: 23, fontWeight: FontWeight.w800),
+        ),
+        const SizedBox(height: 16),
+        const Text(
+          'When an approved seller starts broadcasting, the LIVE stream will appear here.',
+          textAlign: TextAlign.center,
+          style: TextStyle(color: Colors.white60, fontSize: 16, height: 1.45),
+        ),
+        const SizedBox(height: 26),
+        SizedBox(
+          width: 210,
+          child: FilledButton(
+            onPressed: onRefresh,
+            style: FilledButton.styleFrom(
+              backgroundColor: const Color(0xFFB7F36B),
+              foregroundColor: Colors.black,
+              padding: const EdgeInsets.symmetric(vertical: 15),
+            ),
+            child: const Text('Refresh LIVE', style: TextStyle(fontWeight: FontWeight.w800)),
+          ),
+        ),
+        const SizedBox(height: 8),
+        SizedBox(
+          width: 210,
+          child: OutlinedButton(
+            onPressed: onStartLive,
+            style: OutlinedButton.styleFrom(
+              foregroundColor: Colors.white70,
+              side: BorderSide(color: Colors.white.withValues(alpha: .12)),
+              padding: const EdgeInsets.symmetric(vertical: 14),
+            ),
+            child: const Text('Start your LIVE'),
+          ),
+        ),
+        const SizedBox(height: 8),
+        SizedBox(
+          width: 210,
+          child: OutlinedButton(
+            onPressed: onExploreForYou,
+            style: OutlinedButton.styleFrom(
+              foregroundColor: Colors.white70,
+              side: BorderSide(color: Colors.white.withValues(alpha: .12)),
+              padding: const EdgeInsets.symmetric(vertical: 14),
+            ),
+            child: const Text('Explore For You'),
+          ),
+        ),
+      ]),
+    )),
+  );
 }
 
 class _FeedError extends StatelessWidget {
